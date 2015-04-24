@@ -11,7 +11,7 @@ requires chuck -- http://chuck.cs.princeton.edu
 
 here are some starting patterns to try (press all at once):
 
-![](life_pattern.png)
+![](life.png)
 
 more complex patterns: http://www.bitstorm.org/gameoflife/lexicon/
 
