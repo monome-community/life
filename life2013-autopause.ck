@@ -72,22 +72,23 @@ while(getsize.nextMsg() != 0) {
 }
 
 // patch
-//Blit s => ADSR e => JCRev r => dac;
-//e.set( 0.5::ms, 0.5::ms, 0.5, 0.5::ms );
-JCRev reverb => dac;
-0.02 => reverb.mix;
+LPF lpf => Echo echo => dac;
+2000 => lpf.freq;
+5 => lpf.Q;
+0.2 => echo.mix;
+200::ms => echo.delay;
 
-SinOsc oscillators[width][height];
+SawOsc oscillators[width][height];
 ADSR envelopes[width][height];
 int x,y;
 for(0 => x; x < width; x++) {
     for(0 => y; y < height; y++) {
-        oscillators[x][y] @=> SinOsc oscillator;
-        Std.mtof(40 + (y*10) + (x*2)) => oscillator.freq;
+        oscillators[x][y] @=> SawOsc oscillator;
+        Std.mtof(20 + (y*10) + (x*2)) => oscillator.freq;
         0.05 => oscillator.gain;
         envelopes[x][y] @=> ADSR envelope;
-        envelope.set(1::ms, 2000::ms, 0, 20::ms);
-        oscillator => envelope => reverb;
+        envelope.set(10::ms, 2000::ms, 0, 10::ms);
+        oscillator => envelope => lpf;
     }
 }
 
@@ -114,6 +115,7 @@ float speed;
 KBHit kb; 
 int keyboardPause;
 int autoPause;
+int doStep;
 spork ~gridPressListener();
 spork ~keyboardListener();
 
@@ -121,32 +123,11 @@ spork ~keyboardListener();
 <<<"press p to pause", "">>>;
 
 while ( true ) {
-    /*
-    while ( enc.nextMsg() != 0 )
-    {
-        enc.getInt() => i;	
-        enc.getInt() => change;
-        
-        rate + change => rate;
-        if (rate<1000) 1000=>rate;
-        //<<< "rate:", rate >>>;
-        (0.05*rate/1000.0) => speed;
-    }
-    */
-    
-    //clear_all();
-    
     for(0 => x; x < width; x++) {
         for(0 => y; y < height; y++) { 
             if (world[DELTA][x][y] == BIRTH) {
                 ALIVE => world[DISPLAY][x][y]; 
                 led_set(x,y,ON);
-                
-                //Std.mtof( 50 + (y*10) + (x*2) ) => s.freq;
-                //y => s.harmonics;
-                //e.keyOn();
-                //2::ms => now;
-                //e.keyOff();
                 envelopes[x][y].keyOn();
             } 
             if (world[DELTA][x][y] == DEATH) {
@@ -159,8 +140,9 @@ while ( true ) {
         }
     }
     
-    if (keyboardPause == 0 && autoPause == 0) {
-        // Birth and death cycle 
+    if ((keyboardPause == 0 || doStep == 1) && autoPause == 0) {
+        0 => doStep;
+        // Birth and death cycle
         for (0=>x; x < width; x++) { 
             for (0=>y; y < height; y++) {
                 neighbors(x, y) => count;
@@ -169,7 +151,7 @@ while ( true ) {
                 if ((count < 2 || count > 3) && world[DISPLAY][x][y] == ALIVE) 
                     DEATH => world[DELTA][x][y];
             } 
-        } 
+        }
     }
     
     speed::second => now;
@@ -222,11 +204,13 @@ fun void keyboardListener()
         while( kb.more() ){
             kb.getchar() => int char;
             //<<<"ascii", char>>>;
-            if (char == 112){ // p
+            if (char == 112) { // p
                 Std.abs (1 - keyboardPause ) => keyboardPause;
-                if (keyboardPause == 1){<<<"p a u s e", "">>>;}
+                if (keyboardPause == 1){<<<"p a u s e d - (press n to step)", "">>>;}
                 if (keyboardPause == 0){<<<"go", "">>>;}
-			}
+            } else if (keyboardPause && char == 110) { // n
+                1 => doStep;
+            }
 		}
 	}
 }
